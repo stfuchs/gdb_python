@@ -16,7 +16,7 @@
 import gdb
 
 # Load the pretty-printers.
-from printers import register_libstdcxx_printers
+from libstdcxx.v6.printers import register_libstdcxx_printers
 register_libstdcxx_printers(gdb.current_objfile())
 
 # Load the xmethods if GDB supports them.
