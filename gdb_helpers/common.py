@@ -1,21 +1,38 @@
 import gdb
 import re
-from ConsoleColors import cc as colorize
+from gdb_helpers.ConsoleColors import cc as colorize
+
+class Value(gdb.Value):
+    def __repr__(self):
+        return "%s %s" % (self.type.__str__(), self.__str__())
+
+
+def print_class(s, child=""):
+    if child == "": child = str(s.type)
+    for key in s.type:
+        #print("%s.%s" % (s.type,key))
+        try:
+            t = gdb.lookup_type(key)
+            print_class(s.cast(t),child+"::"+key)
+        except:
+            print("%s::%s = %s" % (child, key, Value(s[key]) ))
+
 
 def py(symbol):
     "converts gdb symbol to python object gdb.Value"
-    return gdb.parse_and_eval(symbol)
+    return Value(gdb.parse_and_eval(symbol))
 
 def getSymbols(location):
     res = gdb.execute("info scope "+location, to_string=True)
     return [ s.split(" ", 1)[0] for s in res.split("Symbol ")[1:] ]
 
-def colorizeFrame(frame):
+def colorizeFrame(frame, validate=True):
     code = "\n"
     try: 
         number = re.search("^(#\d+)\s",frame).group(1)
         frame = frame.replace(number, colorize.w(number, color=colorize.c.red))
-    except: return
+    except: 
+        if validate: return
     try:
         function = re.search("\sin\s(.+)\s\(",frame).group(1)
         frame = frame.replace(function, colorize.w(function, color=colorize.c.green))
@@ -29,9 +46,9 @@ def colorizeFrame(frame):
         codeline = re.search(line+".+\n",code).group(0)
         code = code.replace(codeline,colorize.w(codeline, color=colorize.c.cyan))
     except: None
-    print frame+code
+    print(frame+code)
 
-def cexec(command):
+def c(command):
     return gdb.execute(command, to_string=True)
 
 def cfile(filename):
@@ -50,6 +67,10 @@ def cbth():
 def cframe(idx=""):
     frame = gdb.execute("frame "+str(idx), to_string=True)
     colorizeFrame(frame)
+
+def cr():
+    frame = gdb.execute("run", to_string=True)
+    colorizeFrame(frame, False)
 
 def cn(n=1):
     print([ gdb.execute("next", to_string=True) for i in range(n) ])
