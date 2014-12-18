@@ -1,8 +1,9 @@
 import gdb
+import gdb_helpers.common as ghc
 
 def xVecElement(vec, i):
     "return the i'th element of vec"
-    return ((vec['_M_impl']['_M_start']) + i).dereference()
+    return ghc.Variable( ((vec['_M_impl']['_M_start']) + i).dereference() )
 
 def xVec(vec):
     "extracts gdb.Value objects from stl vector to python array"

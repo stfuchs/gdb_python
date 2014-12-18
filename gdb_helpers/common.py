@@ -2,25 +2,53 @@ import gdb
 import re
 from gdb_helpers.ConsoleColors import cc as colorize
 
-class Value(gdb.Value):
+class Variable(gdb.Value):
     def __repr__(self):
-        return "%s %s" % (self.type.__str__(), self.__str__())
+        return self.__str__()
 
+    def __str__(self):
+        stype = highlight_type(self.type.strip_typedefs().__str__())
+        return "%s (%s)"%(gdb.Value.__str__(self), stype)
 
-def print_class(s, child=""):
-    if child == "": child = str(s.type)
-    for key in s.type:
-        #print("%s.%s" % (s.type,key))
-        try:
-            t = gdb.lookup_type(key)
-            print_class(s.cast(t),child+"::"+key)
-        except:
-            print("%s::%s = %s" % (child, key, Value(s[key]) ))
+    def __getitem__(self,key):
+        return Variable(gdb.Value.__getitem__(self,key))
 
+def print_variable(v, intend="",prefix="",is_base=False):
+    v = Variable(v)
+    vtype = v.type.strip_typedefs()
+
+    if vtype.code == gdb.TYPE_CODE_STRUCT:
+        cvtype = highlight_type(str(vtype))
+        if not is_base: print("%s%s (%s):" % (intend, prefix, cvtype))
+        for key in vtype:
+            #print gdb.lookup_symbol(key), key
+            #if gdb.lookup_symbol(key)[0] == None: continue
+            try:
+                basetype = gdb.lookup_type(key).strip_typedefs()
+                print_variable(v.cast(basetype), intend, prefix, True)
+            except gdb.error as err:
+                try:
+                    vkey = v[key]
+                except gdb.error as err:
+                    continue
+                print_variable(vkey, intend+"  ", key)
+    else:
+        print("%s%s = %s" % (intend, prefix, v) )
+
+def highlight_type(stype):
+    split1 = stype.split("<",1)
+    if len(split1) > 1:
+        split2 = split1[1].rsplit("::",1)
+        if len(split2) > 1 and split2[1][-1]!=">":
+            split1[1] = split2[0] + "::" + colorize.w(split2[1],color=colorize.c.blue)
+        split1[0] = colorize.w(split1[0],color=colorize.c.green) + "<" + split1[1]
+    else:
+        split1[0] = colorize.w(split1[0],color=colorize.c.green)
+    return split1[0]
 
 def py(symbol):
     "converts gdb symbol to python object gdb.Value"
-    return Value(gdb.parse_and_eval(symbol))
+    return Variable(gdb.parse_and_eval(symbol))
 
 def getSymbols(location):
     res = gdb.execute("info scope "+location, to_string=True)
