@@ -1,6 +1,6 @@
 import gdb
 import re
-from gdb_helpers.ConsoleColors import cc as colorize
+from gdbpyext.consolecolors import cc as colorize
 
 class Variable(gdb.Value):
     def __repr__(self):
@@ -12,6 +12,9 @@ class Variable(gdb.Value):
 
     def __getitem__(self,key):
         return Variable(gdb.Value.__getitem__(self,key))
+
+    def cast(self,type):
+        return Variable(gdb.Value.cast(self,type))
 
 def print_variable(v, intend="",prefix="",is_base=False):
     v = Variable(v)
@@ -31,9 +34,22 @@ def print_variable(v, intend="",prefix="",is_base=False):
                     vkey = v[key]
                 except gdb.error as err:
                     continue
-                print_variable(vkey, intend+"  ", key)
+                ckey = colorize.w(key,color=colorize.c.red)
+                print_variable(vkey, intend+"  ", ckey)
     else:
         print("%s%s = %s" % (intend, prefix, v) )
+
+def print_type_hierarchy(t, intend=""):
+    tt = t.strip_typedefs()
+    if tt.code == gdb.TYPE_CODE_STRUCT:
+        ctt = highlight_type(str(tt))
+        print("%s<%s>" % (intend, ctt))
+        for key in tt:
+            try:
+                basetype = gdb.lookup_type(key).strip_typedefs()
+                print_type_hierarchy(basetype, intend+"  ")
+            except gdb.error:
+                continue
 
 def highlight_type(stype):
     split1 = stype.split("<",1)
@@ -109,8 +125,12 @@ def cs(n=1):
 def cc():
     print(gdb.execute("continue", to_string=True))
 
-def cb(filename):
-    print(gdb.execute("break "+filename, to_string=True))
+def cb(filename=""):
+    if filename != "":
+        print(gdb.execute("break "+filename, to_string=True))
+    else:
+        for r in c("info break").split("\n")[1:]:
+            colorizeFrame(r,False)
 
 def cq():
     gdb.execute("quit")

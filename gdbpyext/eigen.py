@@ -6,7 +6,7 @@ def printEig(mat):
     print(mat['m_storage']['m_data']['array'])
 
 def getType(mat):
-    m = re.search("Eigen::Matrix\<(.*)\>",str(mat.type))
+    m = re.search("Eigen::Matrix\<(.*)\>",str(mat.type.strip_typedefs()))
     templates = m.group(1).split(",")
     templates = [ t.replace(" ","") for t in templates ]
     return int(templates[1]), int(templates[2])
